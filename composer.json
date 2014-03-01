@@ -14,6 +14,11 @@
       "name": "Ben Word",
       "email": "ben@benword.com",
       "homepage": "https://github.com/retlehs"
+    },
+    {
+      "name": "Szymon Kapturkiewicz",
+      "email": "sk@intersynergy.pl",
+      "homepage": "http://www.intersynergy.pl
     }
   ],
   "keywords": [
@@ -45,8 +50,8 @@
         "version": "3.8.1",
         "type": "webroot",
         "dist": {
-          "type": "zip",
-          "url": "https://github.com/WordPress/WordPress/archive/3.8.1.zip"
+          "type": "tar",
+          "url": "http://pl.wordpress.org/wordpress-3.8.1-pl_PL.tar.gz"
         },
         "require" : {
           "fancyguy/webroot-installer": "1.1.0"
