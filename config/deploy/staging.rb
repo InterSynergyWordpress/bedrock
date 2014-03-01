@@ -10,6 +10,12 @@ set :stage, :staging
 # ======================
 server 'example.com', user: 'deploy', roles: %w{web app db}
 
+set :local_wp_url, "http://example.loc"
+set :deploy_wp_url, "http://example.pl"
+
+SSHKit::Backend::Netssh.pool.idle_timeout = 300
+SSHKit.config.command_map[:wp] = "/usr/bin/env ./vendor/wp-cli/wp-cli/bin/wp"
+
 # you can set custom ssh options
 # it's possible to pass any option but you need to keep in mind that net/ssh understand limited list of options
 # you can see them in [net/ssh documentation](http://net-ssh.github.io/net-ssh/classes/Net/SSH.html#method-c-start)

@@ -12,12 +12,17 @@ set :repo_url, 'git@example.com:me/my_repo.git'
 # This could be overridden in a stage config file
 set :branch, :master
 
-set :deploy_to, "/srv/www/#{fetch(:application)}"
+#set :deploy_to, "/srv/www/#{fetch(:application)}"
 
 set :log_level, :info
 
 set :linked_files, %w{.env}
 set :linked_dirs, %w{app/uploads}
+
+set :maintenance_template_path, "system/maintenance.html"
+
+set :file_permissions_paths, ["system"]
+set :file_permissions_chmod_mode, "0755"
 
 namespace :deploy do
   desc 'Restart application'

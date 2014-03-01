@@ -1,0 +1,364 @@
+namespace :wp do
+
+  desc 'WP-CLI - Info'
+  task :info do 
+    on roles(:all) do
+      within current_path do
+          puts "\e[32m", capture(:wp, "cli info")
+      end
+    end
+  end
+
+################################################################################
+# WP-CLI - DATABASE 
+################################################################################
+  namespace :db do
+
+    desc 'WP-CLI - DB import selected dump file (use a parameter: filename like query.sql)'
+    task :query, [:filename] do |t, args|
+      on roles(:all) do
+        if args[:filename]
+            within current_path do
+              puts "\e[1;34m", capture(:wp, "db query db/#{args[:filename]}")
+            end
+        else
+          warn "please specify a query file e.g: cap production wp:db:query[filename]"
+          warn "remember if you use zsh you'll need to format it as:"
+          warn "cap production 'wp:db:query[filename]' (single quotes)"
+        end
+      end
+    end
+
+    desc 'WP-CLI - DB Push local database'
+    task :push do 
+      on roles(:all) do
+        run_locally do
+          execute :mkdir, "-p tmp/"
+          puts "\e[1;34m", capture(:wp, "db export tmp/db-#{now}.sql"), "\e[0m"
+        end
+        upload! "tmp/db-#{now}.sql", "#{shared_path}/db/db-#{now}.sql"
+        run_locally do
+          execute :rm, "tmp/ -rf"
+        end
+        within current_path do
+          execute :wp, "db reset --yes"
+          puts "\e[1;34m", capture(:wp, "db import db/db-#{now}.sql"), "\e[0m"
+          execute :rm, "db/db-#{now}.sql"
+        end
+      end
+    end    
+
+    desc 'WP-CLI - DB Push local database'
+    task :pull do 
+      on roles(:all) do
+        run_locally do
+          execute :mkdir, "-p tmp/"
+        end
+        within current_path do
+          puts "\e[1;34m", capture(:wp, "db export #{shared_path}/db/db-#{now}.sql"), "\e[0m"
+          download! "#{shared_path}/db/db-#{now}.sql", "tmp/db-#{now}.sql"
+          execute :rm, "#{shared_path}/db/db-#{now}.sql"
+        end
+        run_locally do
+          execute :wp, "db reset --yes"
+          puts "\e[1;34m", capture(:wp, "db import tmp/db-#{now}.sql"), "\e[0m"
+          execute :rm, "tmp/ -rf"
+        end
+      end
+    end    
+
+    desc 'WP-CLI - DB dump database to db/[filename] or if you do not pass parameter - to db/{timestamp}.sql'
+    task :export, [:filename] do |t, args|
+      args.with_defaults(:filename => "#{now}.sql")
+      on roles(:all) do
+        within current_path do
+          puts "\e[1;34m", capture(:wp, "db export db/#{args.filename}")
+        end
+      end
+    end
+    
+    namespace :import do
+      desc 'WP-CLI - DB import latest dump'
+      task :latest do 
+        on roles(:all) do
+          within current_path do
+            execute :wp, "db reset --yes"
+            puts "\e[1;34m", capture("cd #{current_path} && ls -1t db | head -1 | xargs -l echo \"db\" | tr -s ' ' '/' | xargs -l ./vendor/wp-cli/wp-cli/bin/wp db import")
+          end
+        end
+      end      
+      desc 'WP-CLI - DB import selected dump file (use a parameter: filename like dump.sql)'
+      task :file, [:filename] do |t, args|
+        on roles(:all) do
+          if args[:filename]
+            within current_path do
+              execute :wp, "db reset --yes"
+              puts "\e[1;34m", capture(:wp, "db import db/#{args[:filename]}")
+            end
+          else
+            warn "\nplease specify a dump file e.g: cap production wp:db:file[filename]"
+            warn "remember if you use zsh you'll need to format it as:"
+            warn "cap production 'wp:db:file[filename]' (single quotes)"
+          end
+        end
+      end
+    end
+
+    desc 'DB - upload database directory'
+    task :upload do
+      on roles(:all) do
+        upload! "db/.", "#{shared_path}/db/", :recursive => true
+      end
+    end
+
+    desc 'DB - download database directory'
+    task :download do
+      on roles(:all) do
+        run_locally do
+          execute :mkdir, "-p db/"
+        end
+        within current_path do
+          download! "#{shared_path}/db/.", "db", :recursive => true
+        end
+      end
+    end
+
+  end
+## END WP-CLI - DATABASE  ######################################################
+
+################################################################################
+# WP-CLI - SEARCH-REPLACE
+################################################################################
+  desc 'WP-CLI - Search/replace strings in the database.'
+  task :replace do 
+    invoke 'wp:replace:list'
+  end
+
+  namespace :replace do
+    desc 'WP-CLI - Search strings in the database. ex. replace:list[old new]'
+    task :list, [:old, :new] do |t, args|
+      on roles(:app) do
+        within current_path do
+          if args[:old] && args[:new]
+            puts capture(:wp, "search-replace #{args.old} #{args.new} --dry-run")
+          else
+            warn "please specify a logfile e.g: cap production replace:list[http://example.loc,http://example.com]"
+            warn "remember if you use zsh you'll need to format it as:"
+            warn "cap production 'replace:list[http://example.loc,http://example.com]' (single quotes)"
+          end
+        end
+      end
+    end
+    desc 'WP-CLI - Search strings in the database. ex. replace:list[old new]'
+    task :replace, [:old, :new] do |t, args|
+      on roles(:app) do
+        within current_path do
+          if args[:old] && args[:new]
+            puts capture(:wp, "search-replace #{args.old} #{args.new}")
+          else
+            warn "please specify a logfile e.g: cap production replace:list[http://example.loc,http://example.com]"
+            warn "remember if you use zsh you'll need to format it as:"
+            warn "cap production 'replace:list[http://example.loc,http://example.com]' (single quotes)"
+          end
+        end
+      end
+    end
+  end
+## END WP-CLI - SEARCH-REPLACE #################################################
+
+  namespace :media do
+    desc 'WP-CLI - Regenerate thumbnail(s)'
+    task :regenerate do
+      on roles(:all) do
+        within current_path do
+          execute :wp, "media regenerate --yes"
+        end
+      end
+    end
+  end
+
+  namespace :rewrite do
+    desc 'WP-CLI - Print current rewrite rules.'
+    task :list do
+      on roles(:all) do
+        within current_path do
+          puts "\e[1;36m", capture(:wp, "rewrite list")
+        end
+      end
+    end
+    desc 'WP-CLI - Flush rewrite rules.'
+    task :flush do
+      on roles(:all) do
+        within current_path do
+          execute :wp, "rewrite flush"
+          info "Rewrite are flushed"
+        end
+      end
+    end
+  end
+
+  namespace :cache do
+    desc 'WP-CLI - Check cache type'
+    task :check do 
+      on roles(:all) do
+        within current_path do
+          puts "\e[1;36m", capture(:wp, "cache type")
+        end
+      end
+    end
+    desc 'WP-CLI - Clear Cache'
+    task :clear do 
+      on roles(:all) do
+        within current_path do
+          execute :wp, "cache flush"
+          info "Cache are flushed"
+        end
+      end
+    end
+  end
+
+  namespace :plugins do
+    desc 'WP-CLI - Plugin list'
+    task :list do 
+      on roles(:all) do
+        within current_path do
+          puts "\e[1;36m", capture(:wp, "plugin list")
+        end
+      end
+    end
+    desc 'Upload - assets directory'
+    task :upload do
+      on roles(:all) do
+        within current_path do
+          upload! "app/plugins/.", "#{current_path}/app/plugins/", :recursive => true
+        end
+      end
+    end
+  end
+
+  namespace :uploads do
+    desc 'Upload - assets directory'
+    task :upload do
+      on roles(:all) do
+        within current_path do
+          upload! "app/uploads/.", "#{shared_path}/app/uploads/", :recursive => true
+        end
+      end
+    end
+  end
+
+  namespace :user do
+    desc 'WP-CLI - List users.'
+    task :list do
+      on roles(:all) do
+        within current_path do
+          puts "\e[1;36m", capture(:wp, "user list")
+        end
+      end
+    end
+  end
+
+  namespace :init do 
+    desc 'Initialization of Wordpress'
+    task :install do
+        invoke :deploy
+        invoke 'wp:db:push'
+        if (fetch(:local_wp_url, false) != false && fetch(:deploy_wp_url, false) != false) then
+          on roles(:all) do
+            within current_path do
+              puts capture(:wp, "search-replace #{fetch(:local_wp_url)} #{fetch(:deploy_wp_url)}")
+            end
+          end
+        else 
+          puts "\e[33m You're do not define :local_wp_url or/and :deploy_wp_url in environment.rb \e[0m"
+        end
+        # invoke "wp:plugins:upload"
+        # invoke "wp:uploads:upload"
+    end
+  end
+
+end
+
+
+namespace :logs do
+  desc 'Logs'
+  task :tail, :file do |t, args|
+    SSHKit.config.output_verbosity=Logger::DEBUG
+    if args[:file]
+      on roles(:app) do
+        execute "tail -f #{deploy_path}/log/#{args[:file]}.log"
+      end
+    else
+      puts "please specify a logfile e.g: cap production logs:tail[logfile]"
+      puts "will tail 'deploy_path/log/logfile.log'"
+      puts "remember if you use zsh you'll need to format it as:"
+      puts "cap production 'logs:tail[logfile]' (single quotes)"
+    end
+  end
+end
+
+
+namespace :git do
+  desc 'Copy repo to releases'
+  task create_release: :'git:update' do
+    on roles(:all) do
+      with fetch(:git_environmental_variables) do
+        within repo_path do
+          execute :git, :clone, '-b', fetch(:branch), '.', release_path
+        end
+      end
+    end
+  end
+
+  desc 'Git submodules initialization with --remote'
+  task :submodulesinit do
+    on roles(:all) do
+      execute "cd #{release_path} && git submodule update --init --remote"
+    end
+  end
+end
+after "git:create_release", "git:submodulesinit"
+
+
+before :production, :warn do
+  on roles(:all) do
+  puts <<-WARN
+    \e[31m
+      ===========================================================
+                You're in production, hold tight!"
+      ===========================================================
+    \e[0m
+    WARN
+  end
+end
+
+task :confirm do
+  puts <<-WARN
+  \e[33m
+      ===========================================================
+        Please confirm that you're not going to fuck things up.
+      ===========================================================
+  \e[0m
+  WARN
+  ask(:answer, "y/n")
+  on roles(:all) do
+    if fetch(:answer) == 'y' then 
+      true
+    else 
+        puts "\e[33m Deploy cancelled!"
+        exit
+    end
+  end
+end
+
+before "deploy", :confirm
+before "wp:db:query", :confirm
+before "wp:db:import:file", :confirm
+before "wp:db:import:latest", :confirm
+before "wp:db:pull", :confirm
+before "wp:db:push", :confirm
+before "wp:replace", :confirm
+before "wp:replace:replace", :confirm
+before "wp:plugins:upload", :confirm
+before "wp:uploads:upload", :confirm
+
